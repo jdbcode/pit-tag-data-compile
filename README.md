@@ -39,7 +39,7 @@ calling the compiling program. First. Four variables need to be defined
 | functionPath | String, File path | The full system path to the ***pit_tag_data_compile_functions.r*** file
 | DBfile | String, File path | The full system path to the compiled PIT tag data file
 | inputFileList | String, File path | The full system path to a file containing a list of raw PIT tag data files
-| timeZone | String | The time zone for where the raw PIT tag data was collected
+| timeZone | String | The time zone for where the raw PIT tag data was collected. Use this to find your time zone: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 
 Alter the variable definitions for suite your needs and then run the script.
 
