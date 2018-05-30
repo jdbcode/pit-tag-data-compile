@@ -58,9 +58,11 @@ so do a find and replace to make sure that the path separators are correct.
 The data table does not have a column header. The columns are defined as such:
 
 ```
-date, time, fracsec, datetime, duration, tagtype, tagid, antnum, consdetc, arrint, srcfile, srcline, compdate
+site, position, date, time, fracsec, datetime, duration, tagtype, tagid, antnum, consdetc, arrint, srcfile, srcline, compdate
 ```
 
++ `site`: the name of the site that the PIT tag data was collected
++ `position`: an indicator for whether the collection was made upstream or downstream in an array pair
 + `date`: raw data collection datetime
 + `time`: raw data collection time
 + `fracsec`: raw data collection fraction of a second for the time
