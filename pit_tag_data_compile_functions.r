@@ -319,7 +319,25 @@ PITcompile = function(DBfile, inputFileList, timeZone){
   
   
   # read in the date
-  tagDF = read_csv(DBfile, col_names = F)
+  col_types = cols(
+    X1 = col_character(),
+    X2 = col_character(),
+    X3 = col_date(format = ""),
+    X4 = col_time(format = ""),
+    X5 = col_double(),
+    X6 = col_datetime(format = ""),
+    X7 = col_double(),
+    X8 = col_character(),
+    X9 = col_character(),
+    X10 = col_character(),
+    X11 = col_integer(),
+    X12 = col_integer(),
+    X13 = col_character(),
+    X14 = col_integer(),
+    X15 = col_date(format = "")
+  )
+  
+  tagDF = read_csv(DBfile, col_names = F, col_types = col_types)
   
   
   # remove any duplicates
