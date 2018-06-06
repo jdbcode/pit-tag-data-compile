@@ -77,4 +77,3 @@ site, position, date, time, fracsec, datetime, duration, tagtype, tagid, antnum,
 + `srcline`: the raw PIT tag data source file line
 + `compdate`: the date this entry was compiled
 
-
