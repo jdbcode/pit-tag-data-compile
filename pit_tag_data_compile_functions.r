@@ -79,13 +79,14 @@ parseMsg = function(lineChunks, tz){
 }
 
 
-parseTag = function(lineChunks, tz){
+parseORFIDtag = function(lineChunks, tz){
   # get rid of first chunk if it is a detection indicator 
   if(isRecInd(lineChunks[1])){
     lineChunks = lineChunks[2:length(lineChunks)]
   }
   len = length(lineChunks)
-  if(len != 8){
+  if(len != 7){
+    print('fail')
     return('fail')
   }
   
@@ -104,9 +105,9 @@ parseTag = function(lineChunks, tz){
     tagtype = lineChunks[4]
   }
   tagid = lineChunks[5]
-  antnum = lineChunks[6]
-  consdetc = as.numeric(lineChunks[7])
-  arrint = lineChunks[8]
+  antnum = NA #lineChunks[6]
+  consdetc = as.numeric(lineChunks[6])
+  arrint = lineChunks[7]
   if(arrint == '.'){
     arrint = 65001
   } else{
@@ -160,6 +161,41 @@ failedLine = function(site, fn, i, line){
 }
 
 
+getEmptyHolders = function(tz){
+  # setup the msg dataframe 
+  msgDF = data.frame(
+    site = '',
+    date=as.Date('2000-01-01'), 
+    time='00:00:00.00', 
+    fracsec = 0.0, 
+    datetime = strptime('2000-01-01 00:00:00',format='%Y-%m-%d %H:%M:%S', tz=tz),
+    message = ''
+  )
+  
+  # setup the tag dataframe 
+  tagDF = data.frame(
+    site = '',
+    #position = '',
+    date = as.Date('2000-01-01'), 
+    time = '00:00:00.00', 
+    fracsec = 0.0, 
+    datetime = strptime('2000-01-01 00:00:00',format='%Y-%m-%d %H:%M:%S', tz=tz),
+    duration = 0.0,
+    tagtype = '',
+    tagid = '',
+    antnum = '',
+    consdetc = 0,
+    arrint = 0,
+    fname = '',
+    line = 0
+  )
+  
+  
+  # make a bad line holder
+  badLines = vector()
+  return(list(msgDF=msgDF, tagDF=tagDF, badLines=badLines))
+}
+
 
 
 ##############################################################################################
@@ -178,11 +214,144 @@ failedLine = function(site, fn, i, line){
 #         "D:\\work\\proj\\pittag\\all_pit_data\\CAWD\\Downloads\\CAWD_2017_01_06.TXT")
 ##############################################################################################
 
-#DBfile = "D:\\work\\proj\\pittag\\all_pit_data\\tagDB.csv"
-#inputFileList = "D:\\work\\proj\\pittag\\all_pit_data\\fileList.csv"
-#timeZone = "America/Los_Angeles"
 
-PITcompile = function(DBfile, inputFileList, timeZone){
+
+dataDir = "C:\\Users\\braatenj\\Documents\\GitHub\\pit-tag-data-compile\\example"
+dbFile = "C:\\Users\\braatenj\\Documents\\GitHub\\pit-tag-data-compile\\example\\pitTagDB.csv"
+timeZone = "America/Los_Angeles"
+
+siteDirs = normalizePath(list.dirs(dataDir, recursive = F))
+tz = timeZone
+
+
+
+
+for(dir in siteDirs){
+  dir = siteDirs[1]
+  print(str_glue(dir))
+  downloadDir = normalizePath(file.path(dir,"downloads"))
+  archiveDir = normalizePath(file.path(dir,"archive"))
+  # are there files to incorporate
+  logFiles = normalizePath(list.files(downloadDir, '*', full.names = T))
+  
+  # if log files then parse it, else next
+  if(length(logFiles) != 0){
+    for(logFile in logFiles){
+      # read in the lines
+      logFile = logFiles[1]
+      lines = read_lines(logFile)
+      
+      # is this file orfid or biomark - need to get site name
+      lineLen = length(lines)
+      end = ifelse(lineLen < 100, lineLen, 100)
+      if(!all(str_detect(lines[1:end], 'Oregon RFID Datalogger'))){
+        print('ORFID')
+        # get the site from the filename
+        site = unlist(str_split(basename(logFile),'_'))[1]
+        reader = 'ORFID'
+      } else {
+        site = basename(dirname(dirname(logFile)))
+        reader = 'Biomark'
+      }
+
+      bname = basename(logFile)
+      
+      # set up holders
+      holders = getEmptyHolders(tz)
+      msgDF = holders$msgDF
+      tagDF = holders$tagDF
+      badLines = holders$badLines
+      
+      
+      
+      # loop through the lines
+      for(i in 1:length(lines)){
+        # break up the line
+        print(str_glue(bname,i, .sep = " "))
+        line = lines[i]
+        #print(line)
+        lineChunks = getLineChunks(line)
+        firstChunk = lineChunks[1]
+        
+        # figure out what we're dealing with
+        if(isRecInd(firstChunk)){ # ORFID 'D' or 'E'
+          if(firstChunk == 'E'){
+            df = parseMsg(lineChunks, tz)
+            df$site = site
+            msgDF = rbind(msgDF, df)
+          } else if(firstChunk == 'D'){
+            df = parseORFIDtag(lineChunks, tz)
+            if(class(df) == 'character'){
+              #badLine = failedLine(site, fn, i, line)
+              #badLines = c(badLines, badLine)
+              next()
+            }
+            df$site = site
+            df$fname = logFile
+            df$line = i
+            #df$position = position
+            tagDF = rbind(tagDF, df)
+          }
+        } else if(!is.na(getDate(firstChunk))){   # ORFID message
+          isMsg = is.na(suppressWarnings(as.numeric(str_sub(lineChunks[3],1,1))))
+          if(isMsg){
+            df = parseMsg(lineChunks, tz)
+            df$site = site
+            msgDF = rbind(msgDF, df)
+          } else {
+            df = parseORFIDtag(lineChunks, tz)
+            if(class(df) == 'character'){
+              #badLine = failedLine(site, fn, i, line)
+              #badLines = c(badLines, badLine)
+              next()
+            }
+            df$site = site
+            df$fname = logFile
+            df$line = i
+            #df$position = position
+            tagDF = rbind(tagDF, df)
+          }
+        } else if(firstChunk == 'MSG:'){
+          df = parseMTSmsg(lineChunks, tz)
+          if(class(df) == 'character'){
+            #badLine = failedLine(site, fn, i, line)
+            #badLines = c(badLines, badLine)
+            next()
+          }
+          df$site = site
+          msgDF = rbind(msgDF, df)
+        } else if(firstChunk == 'TAG:'){
+          df = parseMTStag(lineChunks, tz)
+          if(class(df) == 'character'){
+            #badLine = failedLine(site, fn, i, line)
+            #badLines = c(badLines, badLine)
+            next()
+          }
+          df$site = site
+          df$fname = logFile
+          df$line = i
+          #df$position = position
+          tagDF = rbind(tagDF, df)
+        }
+      }
+      
+      
+      
+      
+      
+      
+      
+    }
+    
+  } else {
+    print(str_glue('...skip, no log files'))
+    next
+  }
+  
+}
+
+
+PITcompile = function(dbFile, inputFileList, timeZone){
   fileList = read_csv(inputFileList)  
   tz = timeZone
   
@@ -198,38 +367,7 @@ PITcompile = function(DBfile, inputFileList, timeZone){
     lines = read_lines(fn)
     
     
-    # setup the msg dataframe 
-    msgDF = data.frame(
-      site = '',
-      date=as.Date('2000-01-01'), 
-      time='00:00:00.00', 
-      fracsec = 0.0, 
-      datetime = strptime('2000-01-01 00:00:00',format='%Y-%m-%d %H:%M:%S', tz=tz),
-      message = ''
-    )
-    
-    
-    # setup the tag dataframe 
-    tagDF = data.frame(
-      site = '',
-      position = '',
-      date = as.Date('2000-01-01'), 
-      time = '00:00:00.00', 
-      fracsec = 0.0, 
-      datetime = strptime('2000-01-01 00:00:00',format='%Y-%m-%d %H:%M:%S', tz=tz),
-      duration = 0.0,
-      tagtype = '',
-      tagid = '',
-      antnum = '',
-      consdetc = 0,
-      arrint = 0,
-      fname = '',
-      line = 0
-    )
-    
-    
-    # make a bad line holder
-    badLines = vector()
+
     
     # loop through the lines
     for(i in 1:length(lines)){
@@ -247,7 +385,7 @@ PITcompile = function(DBfile, inputFileList, timeZone){
           df$site = site
           msgDF = rbind(msgDF, df)
         } else if(firstChunk == 'D'){
-          df = parseTag(lineChunks, tz)
+          df = parseORFIDtag(lineChunks, tz)
           if(class(df) == 'character'){
             #badLine = failedLine(site, fn, i, line)
             #badLines = c(badLines, badLine)
@@ -266,7 +404,7 @@ PITcompile = function(DBfile, inputFileList, timeZone){
           df$site = site
           msgDF = rbind(msgDF, df)
         } else {
-          df = parseTag(lineChunks, tz)
+          df = parseORFIDtag(lineChunks, tz)
           if(class(df) == 'character'){
             #badLine = failedLine(site, fn, i, line)
             #badLines = c(badLines, badLine)
@@ -314,7 +452,7 @@ PITcompile = function(DBfile, inputFileList, timeZone){
     tagDF = tagDF[!is.na(tagDF$tagid),]
     tagDF$added = Sys.Date()
   
-    write_csv(tagDF, DBfile, append=T)
+    write_csv(tagDF, dbFile, append=T)
   } 
   
   
@@ -337,12 +475,12 @@ PITcompile = function(DBfile, inputFileList, timeZone){
     X15 = col_date(format = "")
   )
   
-  tagDF = read_csv(DBfile, col_names = F, col_types = col_types)
+  tagDF = read_csv(dbFile, col_names = F, col_types = col_types)
   
   
   # remove any duplicates
   tagDF = tagDF[!duplicated(tagDF),]
   
   # write out the clean data compilation
-  write_csv(tagDF, DBfile, col_names = F)
+  write_csv(tagDF, dbFile, col_names = F)
 }

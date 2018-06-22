@@ -1,0 +1,41 @@
+G:\development\Carmel\OmyData\NMFS_Data\ReaderStations  … 
+CAWD  …
+RanchoSanCarlos  …
+Scarlett  …
+SleepyHollow  …
+
+archive
+downloads
+
+############################
+
+In ORFID files, site name is given by
+"Reader:"
+
+sh1
+sh2
+
+scarlett  --> scar1
+scarlett2 --> scar2
+
+cawd  --> cawd1
+Noname  --> cawd2
+
+
+##########################
+Biomark is a completely different beast
+Data directory is this:
+
+G:\development\Carmel\OmyData\NMFS_Data\ReaderStations\RanchoSanCarlos\downloads ...
+
+RSC_20180605 ...
+
+files:
+01_00091
+01_00092
+
+Site name is not given in the file anywhere
+The site name could come from the RSC_date folder, or the earlier RanchoSanCarlos parent folder.
+The site name should be RSC. There will not be a 1 or 2, because the data is saved all together
+and antenna numbers indicate the upstream or downstream. (Antenna numbers 1:3 are downstream, 4:6 
+are upstream). 
