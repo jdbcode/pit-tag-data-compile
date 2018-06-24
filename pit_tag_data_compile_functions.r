@@ -169,7 +169,10 @@ getEmptyHolders = function(tz){
     time='00:00:00.00', 
     fracsec = 0.0, 
     datetime = strptime('2000-01-01 00:00:00',format='%Y-%m-%d %H:%M:%S', tz=tz),
-    message = ''
+    message = '',
+    fname = '',
+    line = 0,
+    reader = ''
   )
   
   # setup the tag dataframe 
@@ -187,7 +190,8 @@ getEmptyHolders = function(tz){
     consdetc = 0,
     arrint = 0,
     fname = '',
-    line = 0
+    line = 0,
+    reader = ''
   )
   
   
@@ -217,7 +221,8 @@ getEmptyHolders = function(tz){
 
 
 dataDir = "C:\\Users\\braatenj\\Documents\\GitHub\\pit-tag-data-compile\\example"
-dbFile = "C:\\Users\\braatenj\\Documents\\GitHub\\pit-tag-data-compile\\example\\pitTagDB.csv"
+tagDBfile = "C:\\Users\\braatenj\\Documents\\GitHub\\pit-tag-data-compile\\example\\tagDB.csv"
+msgDBfile = "C:\\Users\\braatenj\\Documents\\GitHub\\pit-tag-data-compile\\example\\msgDB.csv"
 timeZone = "America/Los_Angeles"
 
 siteDirs = normalizePath(list.dirs(dataDir, recursive = F))
@@ -227,7 +232,7 @@ tz = timeZone
 
 
 for(dir in siteDirs){
-  dir = siteDirs[1]
+  #dir = siteDirs[2]
   print(str_glue(dir))
   downloadDir = normalizePath(file.path(dir,"downloads"))
   archiveDir = normalizePath(file.path(dir,"archive"))
@@ -237,16 +242,13 @@ for(dir in siteDirs){
   # if log files then parse it, else next
   if(length(logFiles) != 0){
     for(logFile in logFiles){
-      # read in the lines
-      logFile = logFiles[1]
+      #logFile = logFiles[1]
       lines = read_lines(logFile)
       
       # is this file orfid or biomark - need to get site name
       lineLen = length(lines)
       end = ifelse(lineLen < 100, lineLen, 100)
-      if(!all(str_detect(lines[1:end], 'Oregon RFID Datalogger'))){
-        print('ORFID')
-        # get the site from the filename
+      if(length(which(str_detect(lines[1:end], 'Oregon RFID Datalogger') == TRUE)) != 0){
         site = unlist(str_split(basename(logFile),'_'))[1]
         reader = 'ORFID'
       } else {
@@ -269,7 +271,6 @@ for(dir in siteDirs){
         # break up the line
         print(str_glue(bname,i, .sep = " "))
         line = lines[i]
-        #print(line)
         lineChunks = getLineChunks(line)
         firstChunk = lineChunks[1]
         
@@ -278,6 +279,9 @@ for(dir in siteDirs){
           if(firstChunk == 'E'){
             df = parseMsg(lineChunks, tz)
             df$site = site
+            df$fname = logFile
+            df$line = i
+            df$reader = reader
             msgDF = rbind(msgDF, df)
           } else if(firstChunk == 'D'){
             df = parseORFIDtag(lineChunks, tz)
@@ -289,7 +293,7 @@ for(dir in siteDirs){
             df$site = site
             df$fname = logFile
             df$line = i
-            #df$position = position
+            df$reader = reader
             tagDF = rbind(tagDF, df)
           }
         } else if(!is.na(getDate(firstChunk))){   # ORFID message
@@ -297,6 +301,9 @@ for(dir in siteDirs){
           if(isMsg){
             df = parseMsg(lineChunks, tz)
             df$site = site
+            df$fname = logFile
+            df$line = i
+            df$reader = reader
             msgDF = rbind(msgDF, df)
           } else {
             df = parseORFIDtag(lineChunks, tz)
@@ -308,7 +315,7 @@ for(dir in siteDirs){
             df$site = site
             df$fname = logFile
             df$line = i
-            #df$position = position
+            df$reader = reader
             tagDF = rbind(tagDF, df)
           }
         } else if(firstChunk == 'MSG:'){
@@ -319,6 +326,9 @@ for(dir in siteDirs){
             next()
           }
           df$site = site
+          df$fname = logFile
+          df$line = i
+          df$reader = reader
           msgDF = rbind(msgDF, df)
         } else if(firstChunk == 'TAG:'){
           df = parseMTStag(lineChunks, tz)
@@ -330,17 +340,39 @@ for(dir in siteDirs){
           df$site = site
           df$fname = logFile
           df$line = i
-          #df$position = position
+          df$reader = reader
           tagDF = rbind(tagDF, df)
         }
       }
       
       
+      # remove any dup data and append to the tag DB
+      tagDF = tagDF[!duplicated(tagDF),]
+      tagDF = tagDF[2:nrow(tagDF),]
       
+      # tagDF = tagDF[!is.na(tagDF$date),]
+      # tagDF = tagDF[!is.na(tagDF$time),]
+      # tagDF = tagDF[!is.na(tagDF$fracsec),]
+      # tagDF = tagDF[!is.na(tagDF$datetime),]
+      # tagDF = tagDF[!is.na(tagDF$tagid),]
+      tagDF$added = Sys.Date()
       
+      write_csv(tagDF, tagDBfile, append=T)
       
+      # remove any dup data and append to the msg DB
+      msgDF = msgDF[!duplicated(msgDF),]
+      msgDF = msgDF[2:nrow(msgDF),]
       
+      # msgDF = msgDF[!is.na(msgDF$date),]
+      # msgDF = msgDF[!is.na(msgDF$time),]
+      # msgDF = msgDF[!is.na(msgDF$fracsec),]
+      # msgDF = msgDF[!is.na(msgDF$datetime),]
+      # msgDF = msgDF[!is.na(msgDF$tagid),]
+      msgDF$added = Sys.Date()
       
+      write_csv(msgDF, msgDBfile, append=T)
+      
+    
     }
     
   } else {
@@ -351,136 +383,33 @@ for(dir in siteDirs){
 }
 
 
-PITcompile = function(dbFile, inputFileList, timeZone){
-  fileList = read_csv(inputFileList)  
-  tz = timeZone
-  
-  for(f in 1:nrow(fileList)){
-    
-    
-    fn = fileList$filename[f]
-    site = fileList$site[f]
-    position =fileList$position[f]
-    
-    bname = basename(fn)
-    # read in the data
-    lines = read_lines(fn)
-    
-    
+# read in the date
+col_types = cols(
+  X1 = col_character(),
+  X2 = col_character(),
+  X3 = col_date(format = ""),
+  X4 = col_time(format = ""),
+  X5 = col_double(),
+  X6 = col_datetime(format = ""),
+  X7 = col_double(),
+  X8 = col_character(),
+  X9 = col_character(),
+  X10 = col_character(),
+  X11 = col_integer(),
+  X12 = col_integer(),
+  X13 = col_character(),
+  X14 = col_integer(),
+  X15 = col_date(format = "")
+)
 
-    
-    # loop through the lines
-    for(i in 1:length(lines)){
-      # break up the line
-      print(str_glue(bname,i, .sep = " "))
-      line = lines[i]
-      #print(line)
-      lineChunks = getLineChunks(line)
-      firstChunk = lineChunks[1]
-      
-      # figure out what we're dealing with
-      if(isRecInd(firstChunk)){ # is the first character an 'D' or 'E'
-        if(firstChunk == 'E'){
-          df = parseMsg(lineChunks, tz)
-          df$site = site
-          msgDF = rbind(msgDF, df)
-        } else if(firstChunk == 'D'){
-          df = parseORFIDtag(lineChunks, tz)
-          if(class(df) == 'character'){
-            #badLine = failedLine(site, fn, i, line)
-            #badLines = c(badLines, badLine)
-            next()
-          }
-          df$site = site
-          df$fname = fn
-          df$line = i
-          df$position = position
-          tagDF = rbind(tagDF, df)
-        }
-      } else if(!is.na(getDate(firstChunk))){
-        isMsg = is.na(suppressWarnings(as.numeric(str_sub(lineChunks[3],1,1))))
-        if(isMsg){
-          df = parseMsg(lineChunks, tz)
-          df$site = site
-          msgDF = rbind(msgDF, df)
-        } else {
-          df = parseORFIDtag(lineChunks, tz)
-          if(class(df) == 'character'){
-            #badLine = failedLine(site, fn, i, line)
-            #badLines = c(badLines, badLine)
-            next()
-          }
-          df$site = site
-          df$fname = fn
-          df$line = i
-          df$position = position
-          tagDF = rbind(tagDF, df)
-        }
-      } else if(firstChunk == 'MSG:'){
-        df = parseMTSmsg(lineChunks, tz)
-        if(class(df) == 'character'){
-          #badLine = failedLine(site, fn, i, line)
-          #badLines = c(badLines, badLine)
-          next()
-        }
-        df$site = site
-        msgDF = rbind(msgDF, df)
-      } else if(firstChunk == 'TAG:'){
-        df = parseMTStag(lineChunks, tz)
-        if(class(df) == 'character'){
-          #badLine = failedLine(site, fn, i, line)
-          #badLines = c(badLines, badLine)
-          next()
-        }
-        df$site = site
-        df$fname = fn
-        df$line = i
-        df$position = position
-        tagDF = rbind(tagDF, df)
-      }
-    }
-    
-    
-    # remove any dup data
-    tagDF = tagDF[!duplicated(tagDF),]
-    tagDF = tagDF[2:nrow(tagDF),]
-    
-    tagDF = tagDF[!is.na(tagDF$date),]
-    tagDF = tagDF[!is.na(tagDF$time),]
-    tagDF = tagDF[!is.na(tagDF$fracsec),]
-    tagDF = tagDF[!is.na(tagDF$datetime),]
-    tagDF = tagDF[!is.na(tagDF$tagid),]
-    tagDF$added = Sys.Date()
-  
-    write_csv(tagDF, dbFile, append=T)
-  } 
-  
-  
-  # read in the date
-  col_types = cols(
-    X1 = col_character(),
-    X2 = col_character(),
-    X3 = col_date(format = ""),
-    X4 = col_time(format = ""),
-    X5 = col_double(),
-    X6 = col_datetime(format = ""),
-    X7 = col_double(),
-    X8 = col_character(),
-    X9 = col_character(),
-    X10 = col_character(),
-    X11 = col_integer(),
-    X12 = col_integer(),
-    X13 = col_character(),
-    X14 = col_integer(),
-    X15 = col_date(format = "")
-  )
-  
-  tagDF = read_csv(dbFile, col_names = F, col_types = col_types)
-  
-  
-  # remove any duplicates
-  tagDF = tagDF[!duplicated(tagDF),]
-  
-  # write out the clean data compilation
-  write_csv(tagDF, dbFile, col_names = F)
-}
+tagDF = read_csv(tagDBfile, col_names = F, col_types = col_types)
+
+
+# remove any duplicates
+tagDF = tagDF[!duplicated(tagDF),]
+
+# write out the clean data compilation
+write_csv(tagDF, tagDBfile, col_names = F)
+
+
+
