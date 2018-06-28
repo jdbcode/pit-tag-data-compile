@@ -150,10 +150,12 @@ parseMTSmsg = function(lineChunks, tz){
 }
 
 
-failedLine = function(site, fn, i, line){
+failedLine = function(site, reader, archiveFile, i, line){
   line = str_glue(
     site,',',
-    fn,',',
+    reader,',',
+    as.character(Sys.Date()),',',
+    archiveFile,',',
     i,',',
     line
   )
@@ -178,7 +180,6 @@ getEmptyHolders = function(tz){
   # setup the tag dataframe 
   tagDF = data.frame(
     site = '',
-    #position = '',
     date = as.Date('2000-01-01'), 
     time = '00:00:00.00', 
     fracsec = 0.0, 
@@ -223,6 +224,7 @@ getEmptyHolders = function(tz){
 dataDir = "C:\\Users\\braatenj\\Documents\\GitHub\\pit-tag-data-compile\\example"
 tagDBfile = "C:\\Users\\braatenj\\Documents\\GitHub\\pit-tag-data-compile\\example\\tagDB.csv"
 msgDBfile = "C:\\Users\\braatenj\\Documents\\GitHub\\pit-tag-data-compile\\example\\msgDB.csv"
+failDBfile = "C:\\Users\\braatenj\\Documents\\GitHub\\pit-tag-data-compile\\example\\failDB.csv"
 timeZone = "America/Los_Angeles"
 
 siteDirs = normalizePath(list.dirs(dataDir, recursive = F))
@@ -232,17 +234,14 @@ tz = timeZone
 
 
 for(dir in siteDirs){
-  #dir = siteDirs[2]
   print(str_glue(dir))
   downloadDir = normalizePath(file.path(dir,"downloads"))
   archiveDir = normalizePath(file.path(dir,"archive"))
-  # are there files to incorporate
   logFiles = normalizePath(list.files(downloadDir, '*', full.names = T))
   
   # if log files then parse it, else next
   if(length(logFiles) != 0){
-    for(logFile in logFiles){
-      #logFile = logFiles[1]
+      for(logFile in logFiles){
       lines = read_lines(logFile)
       
       # is this file orfid or biomark - need to get site name
@@ -257,6 +256,7 @@ for(dir in siteDirs){
       }
 
       bname = basename(logFile)
+      archiveFile = suppressWarnings(normalizePath(file.path(archiveDir,str_glue(as.character(Sys.Date()),'_',bname))))
       
       # set up holders
       holders = getEmptyHolders(tz)
@@ -276,22 +276,22 @@ for(dir in siteDirs){
         
         # figure out what we're dealing with
         if(isRecInd(firstChunk)){ # ORFID 'D' or 'E'
-          if(firstChunk == 'E'){
+          if(firstChunk %in% c('E','B')){
             df = parseMsg(lineChunks, tz)
             df$site = site
-            df$fname = logFile
+            df$fname = archiveFile
             df$line = i
             df$reader = reader
             msgDF = rbind(msgDF, df)
           } else if(firstChunk == 'D'){
             df = parseORFIDtag(lineChunks, tz)
             if(class(df) == 'character'){
-              #badLine = failedLine(site, fn, i, line)
-              #badLines = c(badLines, badLine)
+              badLine = failedLine(site, reader, archiveFile, i, line)
+              badLines = c(badLines, badLine)
               next()
             }
             df$site = site
-            df$fname = logFile
+            df$fname = archiveFile
             df$line = i
             df$reader = reader
             tagDF = rbind(tagDF, df)
@@ -301,44 +301,44 @@ for(dir in siteDirs){
           if(isMsg){
             df = parseMsg(lineChunks, tz)
             df$site = site
-            df$fname = logFile
+            df$fname = archiveFile
             df$line = i
             df$reader = reader
             msgDF = rbind(msgDF, df)
           } else {
             df = parseORFIDtag(lineChunks, tz)
             if(class(df) == 'character'){
-              #badLine = failedLine(site, fn, i, line)
-              #badLines = c(badLines, badLine)
+              badLine = failedLine(site, reader, archiveFile, i, line)
+              badLines = c(badLines, badLine)
               next()
             }
             df$site = site
-            df$fname = logFile
+            df$fname = archiveFile
             df$line = i
             df$reader = reader
             tagDF = rbind(tagDF, df)
           }
-        } else if(firstChunk == 'MSG:'){
+        } else if(firstChunk %in% c('MSG:', 'ALM', 'NRP', 'SRP') ){
           df = parseMTSmsg(lineChunks, tz)
           if(class(df) == 'character'){
-            #badLine = failedLine(site, fn, i, line)
-            #badLines = c(badLines, badLine)
+            badLine = failedLine(site, reader, archiveFile, i, line)
+            badLines = c(badLines, badLine)
             next()
           }
           df$site = site
-          df$fname = logFile
+          df$fname = archiveFile
           df$line = i
           df$reader = reader
           msgDF = rbind(msgDF, df)
         } else if(firstChunk == 'TAG:'){
           df = parseMTStag(lineChunks, tz)
           if(class(df) == 'character'){
-            #badLine = failedLine(site, fn, i, line)
-            #badLines = c(badLines, badLine)
+            badLine = failedLine(site, reader, archiveFile, i, line)
+            badLines = c(badLines, badLine)
             next()
           }
           df$site = site
-          df$fname = logFile
+          df$fname = archiveFile
           df$line = i
           df$reader = reader
           tagDF = rbind(tagDF, df)
@@ -357,7 +357,7 @@ for(dir in siteDirs){
       # tagDF = tagDF[!is.na(tagDF$tagid),]
       tagDF$added = Sys.Date()
       
-      write_csv(tagDF, tagDBfile, append=T)
+      
       
       # remove any dup data and append to the msg DB
       msgDF = msgDF[!duplicated(msgDF),]
@@ -370,8 +370,11 @@ for(dir in siteDirs){
       # msgDF = msgDF[!is.na(msgDF$tagid),]
       msgDF$added = Sys.Date()
       
-      write_csv(msgDF, msgDBfile, append=T)
       
+      write_csv(tagDF, tagDBfile, append=T)
+      write_csv(msgDF, msgDBfile, append=T)
+      write(badLines,failDBfile,ncolumns=1,append=T)
+      file.rename(logFile, archiveFile)
     
     }
     

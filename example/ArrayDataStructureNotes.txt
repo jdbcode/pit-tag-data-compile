@@ -39,3 +39,27 @@ The site name could come from the RSC_date folder, or the earlier RanchoSanCarlo
 The site name should be RSC. There will not be a 1 or 2, because the data is saved all together
 and antenna numbers indicate the upstream or downstream. (Antenna numbers 1:3 are downstream, 4:6 
 are upstream). 
+
+
+
+
+ORFID codes:
+
+E - message - msgDF
+D - data - tagDF
+B - bad - msgDF
+
+Biomark codes:
+
+ALM - msgDF
+NRP - msgDF
+SRP - msgDF
+MSG - msgDF
+TAG - tagDF
+
+
+
+
+
+
+
