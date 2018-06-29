@@ -9,58 +9,6 @@ library(lubridate)
 #https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 
 
-
-failedLine = function(site, reader, archiveFile, i, line){
-  line = str_glue(
-    site,',',
-    reader,',',
-    as.character(Sys.Date()),',',
-    archiveFile,',',
-    i,',',
-    line
-  )
-  return(line)
-}
-
-
-getEmptyHolders = function(tz){
-  # setup the msg dataframe 
-  msgDF = data.frame(
-    site = '',
-    date=as.Date('2000-01-01'), 
-    time='00:00:00.00', 
-    fracsec = 0.0, 
-    datetime = strptime('2000-01-01 00:00:00',format='%Y-%m-%d %H:%M:%S', tz=tz),
-    message = '',
-    fname = '',
-    line = 0,
-    reader = ''
-  )
-  
-  # setup the tag dataframe 
-  tagDF = data.frame(
-    site = '',
-    date = as.Date('2000-01-01'), 
-    time = '00:00:00.00', 
-    fracsec = 0.0, 
-    datetime = strptime('2000-01-01 00:00:00',format='%Y-%m-%d %H:%M:%S', tz=tz),
-    duration = 0.0,
-    tagtype = '',
-    tagid = '',
-    antnum = '',
-    consdetc = 0,
-    arrint = 0,
-    fname = '',
-    line = 0,
-    reader = ''
-  )
-  
-  
-  # make a bad line holder
-  badLines = vector()
-  return(list(msgDF=msgDF, tagDF=tagDF, badLines=badLines))
-}
-
 getDate = function(firstChunk){
   #firstChunk = "03/03/2018"
   
@@ -112,13 +60,29 @@ makeORFIDtagDF = function(tagDataDF){
   return(data.frame(date, time, fracsec, datetime, duration, tagtype, tagid, antnum, consdetc, arrint, stringsAsFactors = F))
 }
 
-makeORFIDmsgDF = function(allLines, theseLines){
-  linesVector = allLines[theseLines]
-  return(data.frame(linesVector, theseLines, stringsAsFactors = F))
+
+parseORFIDmsg = function(line){
+  date = line[2]
+  time = line[3]
+  # skipping duration 
+  msg = str_c(line[5:length(line)], collapse=' ')
+  return(data.frame(date, time, msg))
 }
 
 
+addInfo = function(df, lineNumbers, archiveFile, site, reader){
+  df$site = site
+  df$reader = reader
+  df$fname = archiveFile
+  df$line = lineNumbers
+  df$dateadded = Sys.Date()
+  return(df)
+}
 
+
+###############################################################################################################
+###############################################################################################################
+###############################################################################################################
 
 dataDir = "C:\\Users\\braatenj\\Documents\\GitHub\\pit-tag-data-compile\\example"
 tagDBfile = "C:\\Users\\braatenj\\Documents\\GitHub\\pit-tag-data-compile\\example\\tagDB.csv"
@@ -129,7 +93,9 @@ timeZone = "America/Los_Angeles"
 siteDirs = normalizePath(list.dirs(dataDir, recursive = F))
 tz = timeZone
 
-
+###############################################################################################################
+###############################################################################################################
+###############################################################################################################
 
 
 
@@ -144,9 +110,12 @@ for(dir in siteDirs){
   if(length(logFiles) != 0){
     for(logFile in logFiles){
       logFile = logFiles[1]
+      bname = basename(logFile)
+      archiveFile = suppressWarnings(normalizePath(file.path(archiveDir,str_glue(as.character(Sys.Date()),'_',bname))))
+      
       lines = read_lines(logFile)
       
-      
+
       
       # is this file orfid or biomark - need to get site name
       lineLen = length(lines)
@@ -154,67 +123,71 @@ for(dir in siteDirs){
       if(length(which(str_detect(lines[1:end], 'Oregon RFID Datalogger') == TRUE)) != 0){
         site = unlist(str_split(basename(logFile),'_'))[1]
         reader = 'ORFID'
-      
         lineStart = substr(lines, 1, 2)
         
-        # deal with the tag data
+        
+        
+        ########## DEAL WITH THE TAG DATA (D CODE)
         dataMaybe = which(lineStart == 'D ')
         dataLines = spaceDelim(lines[dataMaybe])
+        
+        #...do a check on the date to make sure that its a proper date
         lens = lengths(dataLines)
         date = unlist(lapply(dataLines, function(l) {unlist(l[2])}))
         dateCheck = do.call("c", lapply(date, getDate)) # need to use do.call('c') here to unlist because unlist reformats the date
         
+        #... for dates that are good and the number of columns is correct, assume they are tags and put them in a DF
         tagDataLines = dataMaybe[which(lens == 8 & !is.na(dateCheck))]
-        tagDataList = sepSpace(lines[tagDataLines])
+        tagDataList = spaceDelim(lines[tagDataLines])
         tagDataMatrix = do.call(rbind, tagDataList)
-        tagDataDF = as.data.frame(cbind(tagDataMatrix, tagDataLines)) %>%
-          makeORFIDtagDF()
+        tagDataDF = as.data.frame(tagDataMatrix) %>%  #cbind(tagDataMatrix, tagDataLines)
+          makeORFIDtagDF() %>%
+          addInfo(tagDataLines, archiveFile, site, reader)
         
-        tagDataFailDF = makeORFIDmsgDF(lines, dataMaybe[which(lens != 8 & !is.na(dateCheck))])
-        other1DF = makeORFIDmsgDF(lines, dataMaybe[which(is.na(dateCheck))])
+        #... for dates that are good but the number of columns is incorrect, assume they are failed reads and put them in a separate DF
+        tagDataFailLines = dataMaybe[which(lens != 8 & !is.na(dateCheck))]
+        tagDataFailList = spaceDelim(lines[tagDataFailLines])
+        tagDataFailDF = do.call("rbind", lapply(tagDataFailList, parseORFIDmsg)) %>%
+          addInfo(tagDataFailLines, archiveFile, site, reader)
+
+        
+        #... for D codes that have a bad date, put them in a separate DF  ---- NEED TO UNMOCK THIS
+        tagDataJunkLines = c(4,5) #dataMaybe[which(is.na(dateCheck))]
+        tagDataJunkVector = c("D the turtle is green", "D the fox is orange") #lines[tagDataJunkLines]
+        tagDataJunkDF = data.frame(msg = tagDataJunkVector) %>%
+          addInfo(tagDataJunkLines, archiveFile, site, reader)
         
 
-        # deal with the e data
-        msgMaybe = which(lineStart == 'E ')
+        
+        ##########  DEAL WITH THE MESSAGE DATA (E AND B CODES)
+        msgMaybe = which(lineStart == 'E ' | lineStart == 'B ')
         msgLines = spaceDelim(lines[msgMaybe])
-
-        parseORFIDmsg = function(line){
-          date = line[2]
-          time = line[3]
-          msg = str_c(line[4:length(line)], collapse=' ')
-          return(data.frame(date, time, msg))
-        }
         
-        msgTest = do.call("rbind", lapply(msgLines, parseMSG))
+        #...do a check on the date to make sure that its a proper date
+        date = unlist(lapply(msgLines, function(l) {unlist(l[2])}))
+        dateCheck = do.call("c", lapply(date, getDate)) # need to use do.call('c') here to unlist because unlist reformats the date
         
-                
-
+        #... for dates that are good, assume they are messages and put them in a DF
+        msgDataLines = msgMaybe[which(!is.na(dateCheck))]
+        msgDataList = spaceDelim(lines[msgDataLines])
+        msgDataDF = do.call("rbind", lapply(msgDataList, parseORFIDmsg)) %>%
+          addInfo(msgDataLines, archiveFile, site, reader)
         
+        #... for E and B codes that have a bad date, put them in a separate DF
+        msgDataJunkLines = msgMaybe[which(is.na(dateCheck))]
+        msgDataJunkVector = lines[msgDataJunkLines]
+        msgDataJunkDF = data.frame(msg = tagDataJunkVector) %>%
+          addInfo(msgDataJunkLines, archiveFile, site, reader)
         
-        other2DF = makeORFIDmsgDF(lines, dataMaybe[which(is.na(dateCheck))])
-        
-        msgData = lines[msgMaybe[!is.na(dateCheck)]]
-        other2 = lines[msgMaybe[is.na(dateCheck)]]
-        
-        # deal with the b data
-        msgMaybe = which(lineStart == 'E ' | lineStart == 'B ' )
-        msgLines = sub("\t", " ", lines[msgMaybe]) %>%
-          str_squish() %>%
-          str_split(' ')
-        
-        lens = lengths(msgLines)
-        date = unlist(lapply(dataLines, function(l) {unlist(l[2])}))
-        dateCheck = do.call("c", lapply(date, getDate))
-        msgData = lines[msgMaybe[!is.na(dateCheck)]]
-        other2 = lines[msgMaybe[is.na(dateCheck)]]
-
-        # deal with other
-        other3 = lines[which(lineStart != 'D ' & lineStart != 'E ' & lineStart != 'B ')]
 
         
-        
-        
-        
+        ##########  DEAL WITH OTHER
+        otherLines = which(lineStart != 'D ' & lineStart != 'E ' & lineStart != 'B ')
+        otherVector = lines[otherLines] %>%
+          sub("\t", " ", .) %>%
+          str_squish()
+        otherDF = data.frame(msg = otherVector) %>%
+          addInfo(otherLines, archiveFile, site, reader)
         
         
         
