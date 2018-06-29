@@ -61,18 +61,6 @@ getEmptyHolders = function(tz){
   return(list(msgDF=msgDF, tagDF=tagDF, badLines=badLines))
 }
 
-
-
-
-dataDir = "C:\\Users\\braatenj\\Documents\\GitHub\\pit-tag-data-compile\\example"
-tagDBfile = "C:\\Users\\braatenj\\Documents\\GitHub\\pit-tag-data-compile\\example\\tagDB.csv"
-msgDBfile = "C:\\Users\\braatenj\\Documents\\GitHub\\pit-tag-data-compile\\example\\msgDB.csv"
-failDBfile = "C:\\Users\\braatenj\\Documents\\GitHub\\pit-tag-data-compile\\example\\failDB.csv"
-timeZone = "America/Los_Angeles"
-
-siteDirs = normalizePath(list.dirs(dataDir, recursive = F))
-tz = timeZone
-
 getDate = function(firstChunk){
   #firstChunk = "03/03/2018"
   
@@ -99,7 +87,51 @@ getDate = function(firstChunk){
   return(date)
 }
 
-as.Date("2018-05-05", format='%Y-%m-%d')
+spaceDelim = function(lines){
+  dataLines = sub("\t", " ", lines) %>%
+    str_squish() %>%
+    str_split(' ')
+  return(dataLines)
+}
+
+
+makeORFIDtagDF = function(tagDataDF){
+  date = as.Date(tagDataDF[,2])
+  time = as.character(tagDataDF[,3])
+  fracsec = round(as.numeric(str_sub(time, 9, 11)), 2)
+  datetime = strptime(paste(date, time),format='%Y-%m-%d %H:%M:%S', tz=tz)
+  duration = period_to_seconds(hms(tagDataDF[,4]))
+  tagtype = as.character(tagDataDF[,5])
+  tagid = as.character(tagDataDF[,6])
+  antnum = NA
+  consdetc = as.numeric(tagDataDF[,7])
+  arrint = as.character(tagDataDF[,8])
+  arrint[arrint == '.'] = '65001'
+  arrint = as.numeric(arrint)
+  
+  return(data.frame(date, time, fracsec, datetime, duration, tagtype, tagid, antnum, consdetc, arrint, stringsAsFactors = F))
+}
+
+makeORFIDmsgDF = function(allLines, theseLines){
+  linesVector = allLines[theseLines]
+  return(data.frame(linesVector, theseLines, stringsAsFactors = F))
+}
+
+
+
+
+dataDir = "C:\\Users\\braatenj\\Documents\\GitHub\\pit-tag-data-compile\\example"
+tagDBfile = "C:\\Users\\braatenj\\Documents\\GitHub\\pit-tag-data-compile\\example\\tagDB.csv"
+msgDBfile = "C:\\Users\\braatenj\\Documents\\GitHub\\pit-tag-data-compile\\example\\msgDB.csv"
+failDBfile = "C:\\Users\\braatenj\\Documents\\GitHub\\pit-tag-data-compile\\example\\failDB.csv"
+timeZone = "America/Los_Angeles"
+
+siteDirs = normalizePath(list.dirs(dataDir, recursive = F))
+tz = timeZone
+
+
+
+
 
 for(dir in siteDirs){
   dir = siteDirs[1]
@@ -124,28 +156,43 @@ for(dir in siteDirs){
         reader = 'ORFID'
       
         lineStart = substr(lines, 1, 2)
+        
         # deal with the tag data
         dataMaybe = which(lineStart == 'D ')
-        dataLines = sub("\t", " ", lines[dataMaybe]) %>%
-          str_squish() %>%
-          str_split(' ')
-        
+        dataLines = spaceDelim(lines[dataMaybe])
         lens = lengths(dataLines)
         date = unlist(lapply(dataLines, function(l) {unlist(l[2])}))
-        dateCheck = do.call("c", lapply(date, getDate))
-        tagData = lines[dataMaybe[which(lens == 8 & !is.na(dateCheck))]]
-        tagFailData = lines[dataMaybe[which(lens != 8 & !is.na(dateCheck))]]
-        other1 = lines[dataMaybe[which(is.na(dateCheck))]]
+        dateCheck = do.call("c", lapply(date, getDate)) # need to use do.call('c') here to unlist because unlist reformats the date
         
+        tagDataLines = dataMaybe[which(lens == 8 & !is.na(dateCheck))]
+        tagDataList = sepSpace(lines[tagDataLines])
+        tagDataMatrix = do.call(rbind, tagDataList)
+        tagDataDF = as.data.frame(cbind(tagDataMatrix, tagDataLines)) %>%
+          makeORFIDtagDF()
+        
+        tagDataFailDF = makeORFIDmsgDF(lines, dataMaybe[which(lens != 8 & !is.na(dateCheck))])
+        other1DF = makeORFIDmsgDF(lines, dataMaybe[which(is.na(dateCheck))])
+        
+
         # deal with the e data
         msgMaybe = which(lineStart == 'E ')
-        msgLines = sub("\t", " ", lines[msgMaybe]) %>%
-          str_squish() %>%
-          str_split(' ')
+        msgLines = spaceDelim(lines[msgMaybe])
+
+        parseORFIDmsg = function(line){
+          date = line[2]
+          time = line[3]
+          msg = str_c(line[4:length(line)], collapse=' ')
+          return(data.frame(date, time, msg))
+        }
         
-        lens = lengths(msgLines)
-        date = unlist(lapply(dataLines, function(l) {unlist(l[2])}))
-        dateCheck = do.call("c", lapply(date, getDate))
+        msgTest = do.call("rbind", lapply(msgLines, parseMSG))
+        
+                
+
+        
+        
+        other2DF = makeORFIDmsgDF(lines, dataMaybe[which(is.na(dateCheck))])
+        
         msgData = lines[msgMaybe[!is.na(dateCheck)]]
         other2 = lines[msgMaybe[is.na(dateCheck)]]
         
@@ -164,6 +211,9 @@ for(dir in siteDirs){
         # deal with other
         other3 = lines[which(lineStart != 'D ' & lineStart != 'E ' & lineStart != 'B ')]
 
+        
+        
+        
         
         
         
