@@ -60,6 +60,20 @@ makeORFIDtagDF = function(tagDataDF){
   return(data.frame(date, time, fracsec, datetime, duration, tagtype, tagid, antnum, consdetc, arrint, stringsAsFactors = F))
 }
 
+makeBiomarkDF = function(tagDataDF){
+  date = as.Date(do.call("c", lapply(as.character(tagDataDF[,4]), getDate)))
+  time = as.character(str_sub(tagDataDF[,5], 1, 11))
+  fracsec = round(as.numeric(str_sub(time, 9, 11)), 2)
+  datetime = strptime(paste(date, time),format='%Y-%m-%d %H:%M:%S', tz=tz)
+  duration = NA
+  tagtype = NA
+  tagid = as.character(tagDataDF[,6]) #str_replace(lineChunks[,6], '[.]', '_')
+  antnum = NA
+  consdetc = NA
+  arrint = NA
+  return(data.frame(date, time, fracsec, datetime, duration, tagtype, tagid, antnum, consdetc, arrint, stringsAsFactors = F))
+}
+
 
 parseORFIDmsg = function(line){
   date = line[2]
@@ -234,34 +248,43 @@ for(dir in siteDirs){
           if(tagDataLinesLength > 0){
             tagDataList = spaceDelim(lines[tagDataLines])
             tagDataMatrix = do.call(rbind, tagDataList)
+            
+            #tagDataDF = head(as.data.frame(tagDataMatrix))
             tagDataDF = as.data.frame(tagDataMatrix) %>%  #cbind(tagDataMatrix, tagDataLines)
-              makeORFIDtagDF() %>%
+              makeBiomarkDF() %>%
               addInfo(tagDataLines, archiveFile, site, reader)
           }
-        }
-        
-        
-        
-        
-        
-        
-        parseBiomarkTag = function(lineChunks, tz){
-          len = length(lineChunks)
-          if(len != 6){
-            return('fail')
+          
+          #... for dates that are good but the number of columns is incorrect, assume they are failed reads and put them in a separate DF
+          tagDataFailLines = dataMaybe[which(lens != 6 & !is.na(dateCheck))]
+          tagDataFailLinesLength = length(tagDataFailLines)
+          if(tagDataFailLinesLength > 0){
+            tagDataFailList = spaceDelim(lines[tagDataFailLines])
+            tagDataFailDF = do.call("rbind", lapply(tagDataFailList, parseORFIDmsg)) %>% #######  NEED TO CHANGE THIS FUNCTION
+              addInfo(tagDataFailLines, archiveFile, site, reader)
           }
-          date = getDate(lineChunks[4])
-          time = str_sub(lineChunks[5], 1, 11)
-          fracsec = round(as.numeric(str_sub(time, 9, 11)), 2)
-          datetime = strptime(paste(date, time),format='%Y-%m-%d %H:%M:%S', tz=tz)
-          duration = NA
-          tagtype = NA
-          tagid = str_replace(lineChunks[6], '[.]', '_')
-          antnum = NA
-          consdetc = NA
-          arrint = NA
-          return(data.frame(date, time, fracsec, datetime, duration, tagtype, tagid, antnum, consdetc, arrint))
+          
+          #... for D codes that have a bad date, put them in a separate DF  ---- NEED TO UNMOCK THIS
+          tagDataJunkLines = dataMaybe[which(is.na(dateCheck))]
+          tagDataJunkLinesLength = length(tagDataJunkLines)
+          if(tagDataJunkLinesLength > 0){
+            tagDataJunkVector = lines[tagDataJunkLines]
+            tagDataJunkDF = data.frame(msg = tagDataJunkVector) %>%
+              addInfo(tagDataJunkLines, archiveFile, site, reader)
+          }
+          
+          
+          
+          
+          
         }
+        
+        
+        
+        
+        
+        
+
         
         
         
