@@ -100,7 +100,7 @@ tz = timeZone
 
 
 for(dir in siteDirs){
-  dir = siteDirs[1]
+  dir = siteDirs[2]
   print(str_glue(dir))
   downloadDir = normalizePath(file.path(dir,"downloads"))
   archiveDir = normalizePath(file.path(dir,"archive"))
@@ -126,80 +126,157 @@ for(dir in siteDirs){
         lineStart = substr(lines, 1, 2)
         
         
-        
         ########## DEAL WITH THE TAG DATA (D CODE)
         dataMaybe = which(lineStart == 'D ')
-        dataLines = spaceDelim(lines[dataMaybe])
+        dataMaybeLength = length(dataMaybe)
+        if(dataMaybeLength > 0){
+          dataLines = spaceDelim(lines[dataMaybe])
+          
+          #...do a check on the date to make sure that its a proper date
+          lens = lengths(dataLines)
+          date = unlist(lapply(dataLines, function(l) {unlist(l[2])}))
+          dateCheck = do.call("c", lapply(date, getDate)) # need to use do.call('c') here to unlist because unlist reformats the date
+          
+          #... for dates that are good and the number of columns is correct, assume they are tags and put them in a DF
+          tagDataLines = dataMaybe[which(lens == 8 & !is.na(dateCheck))]
+          tagDataLinesLength = length(tagDataLines)
+          if(tagDataLinesLength > 0){
+            tagDataList = spaceDelim(lines[tagDataLines])
+            tagDataMatrix = do.call(rbind, tagDataList)
+            tagDataDF = as.data.frame(tagDataMatrix) %>%  #cbind(tagDataMatrix, tagDataLines)
+              makeORFIDtagDF() %>%
+              addInfo(tagDataLines, archiveFile, site, reader)
+          }
+          
+          #... for dates that are good but the number of columns is incorrect, assume they are failed reads and put them in a separate DF
+          tagDataFailLines = dataMaybe[which(lens != 8 & !is.na(dateCheck))]
+          tagDataFailLinesLength = length(tagDataFailLines)
+          if(tagDataFailLinesLength > 0){
+            tagDataFailList = spaceDelim(lines[tagDataFailLines])
+            tagDataFailDF = do.call("rbind", lapply(tagDataFailList, parseORFIDmsg)) %>%
+              addInfo(tagDataFailLines, archiveFile, site, reader)
+          }
+          
+          #... for D codes that have a bad date, put them in a separate DF  ---- NEED TO UNMOCK THIS
+          tagDataJunkLines = dataMaybe[which(is.na(dateCheck))]
+          tagDataJunkLinesLength = length(tagDataJunkLines)
+          if(tagDataJunkLinesLength > 0){
+            tagDataJunkVector = lines[tagDataJunkLines]
+            tagDataJunkDF = data.frame(msg = tagDataJunkVector) %>%
+              addInfo(tagDataJunkLines, archiveFile, site, reader)
+          }
+        }
         
-        #...do a check on the date to make sure that its a proper date
-        lens = lengths(dataLines)
-        date = unlist(lapply(dataLines, function(l) {unlist(l[2])}))
-        dateCheck = do.call("c", lapply(date, getDate)) # need to use do.call('c') here to unlist because unlist reformats the date
-        
-        #... for dates that are good and the number of columns is correct, assume they are tags and put them in a DF
-        tagDataLines = dataMaybe[which(lens == 8 & !is.na(dateCheck))]
-        tagDataList = spaceDelim(lines[tagDataLines])
-        tagDataMatrix = do.call(rbind, tagDataList)
-        tagDataDF = as.data.frame(tagDataMatrix) %>%  #cbind(tagDataMatrix, tagDataLines)
-          makeORFIDtagDF() %>%
-          addInfo(tagDataLines, archiveFile, site, reader)
-        
-        #... for dates that are good but the number of columns is incorrect, assume they are failed reads and put them in a separate DF
-        tagDataFailLines = dataMaybe[which(lens != 8 & !is.na(dateCheck))]
-        tagDataFailList = spaceDelim(lines[tagDataFailLines])
-        tagDataFailDF = do.call("rbind", lapply(tagDataFailList, parseORFIDmsg)) %>%
-          addInfo(tagDataFailLines, archiveFile, site, reader)
 
-        
-        #... for D codes that have a bad date, put them in a separate DF  ---- NEED TO UNMOCK THIS
-        tagDataJunkLines = c(4,5) #dataMaybe[which(is.na(dateCheck))]
-        tagDataJunkVector = c("D the turtle is green", "D the fox is orange") #lines[tagDataJunkLines]
-        tagDataJunkDF = data.frame(msg = tagDataJunkVector) %>%
-          addInfo(tagDataJunkLines, archiveFile, site, reader)
-        
-
-        
         ##########  DEAL WITH THE MESSAGE DATA (E AND B CODES)
         msgMaybe = which(lineStart == 'E ' | lineStart == 'B ')
-        msgLines = spaceDelim(lines[msgMaybe])
-        
-        #...do a check on the date to make sure that its a proper date
-        date = unlist(lapply(msgLines, function(l) {unlist(l[2])}))
-        dateCheck = do.call("c", lapply(date, getDate)) # need to use do.call('c') here to unlist because unlist reformats the date
-        
-        #... for dates that are good, assume they are messages and put them in a DF
-        msgDataLines = msgMaybe[which(!is.na(dateCheck))]
-        msgDataList = spaceDelim(lines[msgDataLines])
-        msgDataDF = do.call("rbind", lapply(msgDataList, parseORFIDmsg)) %>%
-          addInfo(msgDataLines, archiveFile, site, reader)
-        
-        #... for E and B codes that have a bad date, put them in a separate DF
-        msgDataJunkLines = msgMaybe[which(is.na(dateCheck))]
-        msgDataJunkVector = lines[msgDataJunkLines]
-        msgDataJunkDF = data.frame(msg = tagDataJunkVector) %>%
-          addInfo(msgDataJunkLines, archiveFile, site, reader)
+        msgMaybeLength = length(msgMaybe)
+        if(msgMaybeLength > 0){
+          msgLines = spaceDelim(lines[msgMaybe])
+          
+          #...do a check on the date to make sure that its a proper date
+          date = unlist(lapply(msgLines, function(l) {unlist(l[2])}))
+          dateCheck = do.call("c", lapply(date, getDate)) # need to use do.call('c') here to unlist because unlist reformats the date
+          
+          #... for dates that are good, assume they are messages and put them in a DF
+          msgDataLines = msgMaybe[which(!is.na(dateCheck))]
+          msgDataLinesLength = length(msgDataLines)
+          if(msgDataLinesLength > 0){
+            msgDataList = spaceDelim(lines[msgDataLines])
+            msgDataDF = do.call("rbind", lapply(msgDataList, parseORFIDmsg)) %>%
+              addInfo(msgDataLines, archiveFile, site, reader)
+          }
+          
+          #... for E and B codes that have a bad date, put them in a separate DF
+          msgDataJunkLines = msgMaybe[which(is.na(dateCheck))]
+          msgDataJunkLinesLength = length(msgDataJunkLines)
+          if(msgDataJunkLinesLength > 0){
+            msgDataJunkVector = lines[msgDataJunkLines]
+            msgDataJunkDF = data.frame(msg = tagDataJunkVector) %>%
+              addInfo(msgDataJunkLines, archiveFile, site, reader)
+          }
+        }
         
 
-        
         ##########  DEAL WITH OTHER
         otherLines = which(lineStart != 'D ' & lineStart != 'E ' & lineStart != 'B ')
-        otherVector = lines[otherLines] %>%
-          sub("\t", " ", .) %>%
-          str_squish()
-        otherDF = data.frame(msg = otherVector) %>%
-          addInfo(otherLines, archiveFile, site, reader)
-        
+        otherLinesLength = length(otherLines)
+        if(otherLinesLength > 0){
+          otherVector = lines[otherLines] %>%
+            sub("\t", " ", .) %>%
+            str_squish()
+          otherDF = data.frame(msg = otherVector) %>%
+            addInfo(otherLines, archiveFile, site, reader)
+        }
         
         
       } else {
         site = basename(dirname(dirname(logFile)))
         reader = 'Biomark'
+        lineStart = substr(lines, 1, 4)
+        #checkCode = substr(lines, 4, 5)
+        
+        
+        ########## DEAL WITH THE TAG DATA (TAG: CODE)
+        dataMaybe = which(lineStart == 'TAG:')
+        dataMaybeLength = length(dataMaybe)
+        if(dataMaybeLength > 0){
+          dataLines = spaceDelim(lines[dataMaybe])
+          
+          #...do a check on the date to make sure that its a proper date
+          lens = lengths(dataLines)
+          date = unlist(lapply(dataLines, function(l) {unlist(l[4])}))
+          dateCheck = do.call("c", lapply(date, getDate)) # need to use do.call('c') here to unlist because unlist reformats the date
+          
+          #... for dates that are good and the number of columns is correct, assume they are tags and put them in a DF
+          tagDataLines = dataMaybe[which(lens == 6 & !is.na(dateCheck))]
+          tagDataLinesLength = length(tagDataLines)
+          if(tagDataLinesLength > 0){
+            tagDataList = spaceDelim(lines[tagDataLines])
+            tagDataMatrix = do.call(rbind, tagDataList)
+            tagDataDF = as.data.frame(tagDataMatrix) %>%  #cbind(tagDataMatrix, tagDataLines)
+              makeORFIDtagDF() %>%
+              addInfo(tagDataLines, archiveFile, site, reader)
+          }
+        }
+        
+        
+        
+        
+        
+        
+        parseBiomarkTag = function(lineChunks, tz){
+          len = length(lineChunks)
+          if(len != 6){
+            return('fail')
+          }
+          date = getDate(lineChunks[4])
+          time = str_sub(lineChunks[5], 1, 11)
+          fracsec = round(as.numeric(str_sub(time, 9, 11)), 2)
+          datetime = strptime(paste(date, time),format='%Y-%m-%d %H:%M:%S', tz=tz)
+          duration = NA
+          tagtype = NA
+          tagid = str_replace(lineChunks[6], '[.]', '_')
+          antnum = NA
+          consdetc = NA
+          arrint = NA
+          return(data.frame(date, time, fracsec, datetime, duration, tagtype, tagid, antnum, consdetc, arrint))
+        }
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
       }
       
+      # write out the files here
       
-      
-      bname = basename(logFile)
-      archiveFile = suppressWarnings(normalizePath(file.path(archiveDir,str_glue(as.character(Sys.Date()),'_',bname))))
+
       
       
       
