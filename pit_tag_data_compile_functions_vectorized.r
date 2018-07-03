@@ -67,7 +67,7 @@ makeBiomarkDF = function(tagDataDF){
   datetime = strptime(paste(date, time),format='%Y-%m-%d %H:%M:%S', tz=tz)
   duration = NA
   tagtype = NA
-  tagid = as.character(tagDataDF[,6]) #str_replace(lineChunks[,6], '[.]', '_')
+  tagid = as.character(str_replace(tagDataDF[,6], '[.]', '_')) #str_replace(tagDataDF[,6], '[.]', '_')
   antnum = NA
   consdetc = NA
   arrint = NA
@@ -80,6 +80,14 @@ parseORFIDmsg = function(line){
   time = line[3]
   # skipping duration 
   msg = str_c(line[5:length(line)], collapse=' ')
+  return(data.frame(date, time, msg))
+}
+
+parseBiomarkMsg = function(line){
+  date = line[4]
+  time = line[5]
+  # skipping duration 
+  msg = str_c(line, collapse=' ')
   return(data.frame(date, time, msg))
 }
 
@@ -260,11 +268,11 @@ for(dir in siteDirs){
           tagDataFailLinesLength = length(tagDataFailLines)
           if(tagDataFailLinesLength > 0){
             tagDataFailList = spaceDelim(lines[tagDataFailLines])
-            tagDataFailDF = do.call("rbind", lapply(tagDataFailList, parseORFIDmsg)) %>% #######  NEED TO CHANGE THIS FUNCTION
+            tagDataFailDF = do.call("rbind", lapply(tagDataFailList, parseBiomarkMsg)) %>% 
               addInfo(tagDataFailLines, archiveFile, site, reader)
           }
           
-          #... for D codes that have a bad date, put them in a separate DF  ---- NEED TO UNMOCK THIS
+          #... for TAG: codes that have a bad date, put them in a separate DF
           tagDataJunkLines = dataMaybe[which(is.na(dateCheck))]
           tagDataJunkLinesLength = length(tagDataJunkLines)
           if(tagDataJunkLinesLength > 0){
