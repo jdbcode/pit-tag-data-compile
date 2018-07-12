@@ -118,13 +118,16 @@ site, reader, srcfile, compdate, tagpct, tagfailpct, tagbadpct, msgpct, msgbadpc
 + `msgbadnrow`: the number of lines in log file that are bad tag reads - the line could not be parsed correctly
 + `othernrow`: the number of lines in log file that could not be parsed correctly to identify whether it was a tag reading or a message
 + `totalnrow`: the total number of lines in the reader log file
- 
- 
-+ **tagDB.csv**: these are successful tag readings where data acquired from the scanner is formatted correctly
-+ **tagFailDB.csv**: these are tag readings where the tag id was not recorded correctly during scan
-+ **tagBadDB.csv**: these are tag readings whose format is incorrect and parsing failed
-+ **msgDB.csv**: these proper messages from the scanner system
-+ **msgBadDB.csv**: these are messages from the scanner system that 
+  
+**tagDB.csv**: these are successful tag readings where data acquired from the scanner is formatted correctly
+
+**tagFailDB.csv**: these are tag readings where the tag id was not recorded correctly during scan
+
+**tagBadDB.csv**: these are tag readings whose format is incorrect and parsing failed
+
+**msgDB.csv**: these proper messages from the scanner system
+
+**msgBadDB.csv**: these are messages from the scanner system that 
 
 The data table does not have a column header. The columns are defined as such:
 
