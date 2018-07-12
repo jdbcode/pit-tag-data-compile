@@ -98,30 +98,30 @@ The data table does not have a column header. The columns are defined as such:
 ```
 site, reader, srcfile, compdate, tagpct, tagfailpct, tagbadpct, msgpct, msgbadpct, otherpct, tagnrow, tagfailnrow, tagbadnrow, msgnrow, msgbadnrow, othernrow, totalnrow```
 
-`site`: the name of the site that the PIT tag data was collected
-`reader`: the type of PIT reader system
-`srcfile`: the raw PIT tag data source file path
-`compdate`: the date this entry was compiled
-`tagpct`: the percent of lines in log file that are good tag reads
-`tagfailpct`: the percent of lines in log file that are failed tag reads - the tag ID is not valid
-`tagbadpct`: the percent of lines in log file that are bad tag reads - the line could not be parsed correctly
-`msgpct`: the percent of lines in log file that are good messages - parsed correctly
-`msgbadpct`: the percent of lines in log file that are bad messages - parsed incorrectly
-`otherpct`: the percent of lines in log file that could not be parsed correctly to identify whether it was a tag reading or a message
-`tagnrow`: the number of lines in log file that are good tag reads
-`tagfailnrow`: the number of lines in log file that are failed tag reads - the tag ID is not valid
-`tagbadnrow`: the number of lines in log file that are bad tag reads - the line could not be parsed correctly
-`msgnrow`: the number of lines in log file that are good messages - parsed correctly
-`msgbadnrow`: the number of lines in log file that are bad tag reads - the line could not be parsed correctly
-`othernrow`: the number of lines in log file that could not be parsed correctly to identify whether it was a tag reading or a message
-`totalnrow`: the total number of lines in the reader log file
++ `site`: the name of the site that the PIT tag data was collected
++ `reader`: the type of PIT reader system
++ `srcfile`: the raw PIT tag data source file path
++ `compdate`: the date this entry was compiled
++ `tagpct`: the percent of lines in log file that are good tag reads
++ `tagfailpct`: the percent of lines in log file that are failed tag reads - the tag ID is not valid
++ `tagbadpct`: the percent of lines in log file that are bad tag reads - the line could not be parsed correctly
++ `msgpct`: the percent of lines in log file that are good messages - parsed correctly
++ `msgbadpct`: the percent of lines in log file that are bad messages - parsed incorrectly
++ `otherpct`: the percent of lines in log file that could not be parsed correctly to identify whether it was a tag reading or a message
++ `tagnrow`: the number of lines in log file that are good tag reads
++ `tagfailnrow`: the number of lines in log file that are failed tag reads - the tag ID is not valid
++ `tagbadnrow`: the number of lines in log file that are bad tag reads - the line could not be parsed correctly
++ `msgnrow`: the number of lines in log file that are good messages - parsed correctly
++ `msgbadnrow`: the number of lines in log file that are bad tag reads - the line could not be parsed correctly
++ `othernrow`: the number of lines in log file that could not be parsed correctly to identify whether it was a tag reading or a message
++ `totalnrow`: the total number of lines in the reader log file
  
  
-**tagDB.csv**: these are successful tag readings where data acquired from the scanner is formatted correctly
-**tagFailDB.csv**: these are tag readings where the tag id was not recorded correctly during scan
-**tagBadDB.csv**: these are tag readings whose format is incorrect and parsing failed
-**msgDB.csv**: these proper messages from the scanner system
-**msgBadDB.csv**: these are messages from the scanner system that 
++ **tagDB.csv**: these are successful tag readings where data acquired from the scanner is formatted correctly
++ **tagFailDB.csv**: these are tag readings where the tag id was not recorded correctly during scan
++ **tagBadDB.csv**: these are tag readings whose format is incorrect and parsing failed
++ **msgDB.csv**: these proper messages from the scanner system
++ **msgBadDB.csv**: these are messages from the scanner system that 
 
 The data table does not have a column header. The columns are defined as such:
 
