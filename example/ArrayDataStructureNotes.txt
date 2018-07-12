@@ -58,6 +58,8 @@ MSG - msgDF
 TAG - tagDF
 
 
+# TODO: check on squeeze msg
+# TODO: check . vs _ in tag id (make _)
 
 
 
