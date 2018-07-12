@@ -41,7 +41,8 @@ There is an ***example*** folder that contain all files needed to perform a test
     \---SleepyHollow
         +---archive
         \---downloads
-                SH2_20180607_fulldownload```
+                SH2_20180607_fulldownload
+```
 
 
 ### Directory Setup
@@ -63,7 +64,8 @@ Here is the structure you need to create per site:
 	|
 	\---site3
         +---archive
-        \---downloads```
+        \---downloads
+```
 
 `site`: will hold the log files for an individual reader - whatever the name of the folder is, is what the name of the site will be in the database files
 `archive`: is where files that have been parsed and incorporated into the database files will be moved to - the date of inclusion in the db files will be prepended to the original file name
@@ -96,7 +98,8 @@ There are 6 data tables that can be produced
 The data table does not have a column header. The columns are defined as such:
 
 ```
-site, reader, srcfile, compdate, tagpct, tagfailpct, tagbadpct, msgpct, msgbadpct, otherpct, tagnrow, tagfailnrow, tagbadnrow, msgnrow, msgbadnrow, othernrow, totalnrow```
+site, reader, srcfile, compdate, tagpct, tagfailpct, tagbadpct, msgpct, msgbadpct, otherpct, tagnrow, tagfailnrow, tagbadnrow, msgnrow, msgbadnrow, othernrow, totalnrow
+```
 
 + `site`: the name of the site that the PIT tag data was collected
 + `reader`: the type of PIT reader system
@@ -126,7 +129,8 @@ site, reader, srcfile, compdate, tagpct, tagfailpct, tagbadpct, msgpct, msgbadpc
 The data table does not have a column header. The columns are defined as such:
 
 ```
-site, position, date, time, fracsec, datetime, duration, tagtype, tagid, antnum, consdetc, arrint, srcfile, srcline, compdate```
+site, position, date, time, fracsec, datetime, duration, tagtype, tagid, antnum, consdetc, arrint, srcfile, srcline, compdate
+```
 
 + `site`: the name of the site that the PIT tag data was collected
 + `position`: an indicator for whether the collection was made upstream or downstream in an array pair
