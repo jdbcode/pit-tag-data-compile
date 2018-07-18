@@ -9,10 +9,13 @@ readr.show_progress = F
 #https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 
 
-getDate = function(dateChunk){
+getDate = function(dateChunk='thisisafillerdate'){
   #dateChunk = "03/03/2018"
   
-  if(nchar(dateChunk) == 10){
+  test = try(if(nchar(dateChunk)==10){'fail?'}) #, silent=T
+  if(class(test) == "try-error"){return(NA)}
+  
+  if(nchar(dateChunk) == 10){ #10
     tryTheseFormats = c('%m-%d-%Y',
                         '%m/%d/%Y', 
                         '%Y-%m-%d', 
